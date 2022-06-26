@@ -1,0 +1,14 @@
+
+
+python main.py --use_checkpoint --batch_size=<Batch-Size> --num_steps=<Num-Steps> --lrdecay
+--eval_num=<Eval-Num> --logdir=<Exp-Num> --lr=<Lr> --roi_x=<Roi_x> --roi_y=<Roi_y> --roi_z=<Roi_z>
+
+
+To pre-train a Swin UNETR encoder using multi-gpus:
+
+python -m torch.distributed.launch --nproc_per_node=<Num-GPUs> --master_port=11223 main.py
+--batch_size=<Batch-Size> --num_steps=<Num-Steps> --lrdecay --eval_num=<Eval-Num> --logdir=<Exp-Num> --lr=<Lr>
+The following was used to pre-train Swin UNETR on 8 X 32G V100 GPUs:
+
+python -m torch.distributed.launch --nproc_per_node=8 --master_port=11223 main.py
+--batch_size=1 --num_steps=100000 --lrdecay --eval_num=500 --lr=6e-6 --decay=0.1
