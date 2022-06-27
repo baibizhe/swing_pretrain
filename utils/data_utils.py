@@ -64,7 +64,7 @@ def get_loader(args):
     # datalist2 = load_decathlon_datalist(jsonlist2, False, "training", base_dir=datadir2)
     # print('Dataset 2 Covid 19: number of data: {}'.format(len(datalist2)))
 
-    datalist3 = load_decathlon_datalist(jsonlist3, False, "training", base_dir=datadir3)
+    # datalist3 = load_decathlon_datalist(jsonlist3, False, "training", base_dir=datadir3)
     base_data_dir = os.path.realpath(os.path.join("data","unlabel"))
     all_datalist = os.listdir(base_data_dir)
     all_datalist = list(map(lambda x:{'image':os.path.join(base_data_dir,x)},all_datalist))
@@ -95,7 +95,7 @@ def get_loader(args):
         [
             LoadImaged(keys=["image"]),
             AddChanneld(keys=["image"]),
-            # Orientationd(keys=["image"], axcodes="RAS"),
+            Orientationd(keys=["image"], axcodes="RAS"),
             ScaleIntensityRanged(keys=["image"],
                                  a_min=args.a_min,
                                  a_max=args.a_max,
@@ -185,5 +185,10 @@ def get_loader(args):
                             num_workers=num_workers,
                             shuffle=False,
                             drop_last=True)
-
+    # base_data_dir = os.path.realpath(os.path.join("data","FLARE22_LabeledCase50"))
+    # labels_data_dir = os.path.join(base_data_dir,"labels")
+    #
+    # labels_data_dir_idx = os.listdir(labels_data_dir)
+    # all_datalist = list(map(lambda x:{'image':os.path.join(base_data_dir,x)},all_datalist))
+    # datalist3 = all_datalist[0:int(len(all_datalist)*0.8)]
     return train_loader, val_loader

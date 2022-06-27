@@ -11,6 +11,8 @@
 
 import os
 import argparse
+
+import monai.networks.nets
 import numpy as np
 from time import time
 
@@ -25,6 +27,7 @@ from torch.nn.parallel import DistributedDataParallel
 from models.ssl_head import SSLHead
 from losses.loss import Loss
 from utils.ops import rot_rand, aug_rand
+from valid_dice import validate_metricss
 
 
 def main():
@@ -35,7 +38,8 @@ def main():
               global_step,
               train_loader,
               val_best,
-              scaler
+              scaler,
+              main_model
               ):
 
         model.train()
@@ -43,6 +47,10 @@ def main():
         loss_train_recon = []
 
         for step, batch in enumerate(train_loader):
+            print(step,args.valid_metrics_step)
+            if global_step % args.valid_metrics_step == 0:
+                main_model.swinViT = model.swin_vit
+                validate_metricss(main_model)
             t1 = time()
             x = (batch["image"].cuda())
             x1, rot1 = rot_rand(args, x)
@@ -93,6 +101,8 @@ def main():
 
             if val_cond:
                 val_loss, val_loss_recon, img_list = validation(args, test_loader)
+                # val_loss, val_loss_recon, img_list = 0,0,0
+
                 writer.add_scalar("Validation/loss_recon",
                                   scalar_value=val_loss_recon,
                                   global_step=global_step)
@@ -177,11 +187,11 @@ def main():
     parser.add_argument('--space_x', default=1.5, type=float, help='spacing in x direction')
     parser.add_argument('--space_y', default=1.5, type=float, help='spacing in y direction')
     parser.add_argument('--space_z', default=2.0, type=float, help='spacing in z direction')
-    parser.add_argument('--roi_x', default=96, type=int, help='roi size in x direction')
-    parser.add_argument('--roi_y', default=96, type=int, help='roi size in y direction')
-    parser.add_argument('--roi_z', default=96, type=int, help='roi size in z direction')
+    parser.add_argument('--roi_x', default=128, type=int, help='roi size in x direction')
+    parser.add_argument('--roi_y', default=128, type=int, help='roi size in y direction')
+    parser.add_argument('--roi_z', default=128, type=int, help='roi size in z direction')
     parser.add_argument('--batch_size', default=1, type=int, help='number of batch size')
-    parser.add_argument('--sw_batch_size', default=2, type=int, help='number of sliding window batch size')
+    parser.add_argument('--sw_batch_size', default=1, type=int, help='number of sliding window batch size')
     parser.add_argument('--lr', default=4e-4, type=float, help='learning rate')
     parser.add_argument('--decay', default=0.1, type=float, help='decay rate')
     parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
@@ -199,8 +209,10 @@ def main():
                         help='use monai smartcache Dataset')
     parser.add_argument('--cache_dataset', action='store_true',
                         help='use monai cache Dataset')
-
+    parser.add_argument('--valid_metrics_step', type=int,default=2000,
+                    )
     args = parser.parse_args()
+    print(args)
     logdir = './runs/' + args.logdir
     args.amp = not args.noamp
     torch.backends.cudnn.benchmark = True
@@ -280,13 +292,19 @@ def main():
         scaler = GradScaler()
     else:
         scaler = None
+    config =  vars(args)
+    main_model = monai.networks.nets.SwinUNETR(
+        img_size=(args.roi_x,args.roi_y,args.roi_z),in_channels=1,out_channels=14,feature_size=args.feature_size).cuda()
     while global_step < args.num_steps:
+
         global_step, loss, best_val = train(args,
                                             global_step,
                                             train_loader,
                                             best_val,
-                                            scaler
+                                            scaler,
+                                            main_model
                                             )
+
     checkpoint = {'epoch': args.epochs,
                   'state_dict': model.state_dict(),
                   'optimizer': optimizer.state_dict()}
